@@ -93,21 +93,25 @@ jobs:
 
       - name: Notify Final Status
         if: always()
-        uses: ayoolamakinde/appsec-static-scanner/.github/workflows/notify.yml@main
-        with:
-          notification_type: 'summary'
-          severity: 'INFO'
-          tool_name: 'All Scanners'
-          message: |
-            🔒 **Security Scan Complete**
-            
-            SCA: ${{ needs.sca-scan.result }}
-            SAST: ${{ needs.sast-scan.result }}
-            IAC: ${{ needs.iac-scan.result }}
-            Secrets: ${{ needs.secrets-scan.result }}
-            
-            Repository: ${{ github.repository }}
-            Branch: ${{ github.ref_name }}
-            Commit: ${{ github.sha }}
-        secrets:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "🔒 Security Scan Complete",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "Security Scan Summary"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Repository: ${{ github.repository }}\nBranch: ${{ github.ref_name }}\nCommit: ${{ github.sha }}\n\n*Results:*\nSCA: ${{ needs.sca-scan.result }}\nSAST: ${{ needs.sast-scan.result }}\nIAC: ${{ needs.iac-scan.result }}\nSecrets: ${{ needs.secrets-scan.result }}"
+                  }
+                }
+              ]
+            }'
