@@ -14,7 +14,7 @@ on:
 jobs:
   sca-scan:
     name: SCA - Dependency Vulnerabilities
-    uses: ayoolamakinde/appsec-static-scanner/.github/workflows/sca-scan.yml@main
+    uses: ayoolamakinde/appsec-static-scanner/.github/workflows/sca-scan.yml@master
     with:
       severity: 'CRITICAL,HIGH,MEDIUM,LOW'
       fail_on_severity: 'HIGH'
@@ -27,7 +27,7 @@ jobs:
 
   sast-scan:
     name: SAST - Code Vulnerabilities
-    uses: ayoolamakinde/appsec-static-scanner/.github/workflows/sast-scan.yml@main
+    uses: ayoolamakinde/appsec-static-scanner/.github/workflows/sast-scan.yml@master
     with:
       languages: 'python,javascript,typescript,go,java'
       rules_path: 'p/owasp-top-ten,p/security-audit'
@@ -40,7 +40,7 @@ jobs:
 
   iac-scan:
     name: IAC - Infrastructure Misconfigurations
-    uses: ayoolamakinde/appsec-static-scanner/.github/workflows/iac-scan.yml@main
+    uses: ayoolamakinde/appsec-static-scanner/.github/workflows/iac-scan.yml@master
     with:
       frameworks: 'terraform,kubernetes,dockerfile,cloudformation,bicep'
       fail_on_severity: 'HIGH'
@@ -53,7 +53,7 @@ jobs:
 
   secrets-scan:
     name: Secrets - Exposed Credentials
-    uses: ayoolamakinde/appsec-static-scanner/.github/workflows/secrets-scan.yml@main
+    uses: ayoolamakinde/appsec-static-scanner/.github/workflows/secrets-scan.yml@master
     with:
       scan_type: 'filesystem,git'
       scan_history: true
