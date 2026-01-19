@@ -68,7 +68,7 @@ jobs:
       only_verified: false
       entropy_threshold: 3.0
       fail_on_finding: false
-      create_critical_issue: true
+      create_issue: true
       comment_pr: true
     secrets:
       SECURITY_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
