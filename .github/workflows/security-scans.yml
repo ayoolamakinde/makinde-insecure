@@ -53,7 +53,7 @@ jobs:
       frameworks: 'terraform,kubernetes,dockerfile,cloudformation,bicep'
       fail_on_severity: 'HIGH'
       download_external_modules: true
-      compact_mode: false
+      compact_output: false
       create_issue: true
       comment_pr: true
     secrets:
