@@ -1,0 +1,113 @@
+name: Security Scans
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+jobs:
+  sca-scan:
+    name: SCA - Dependency Vulnerabilities
+    uses: ayoolamakinde/appsec-static-scanner/.github/workflows/sca-scan.yml@main
+    with:
+      severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+      fail_on_severity: 'HIGH'
+      generate_sbom: true
+      output_format: 'sarif,json,cyclonedx'
+      create_issue: true
+      comment_pr: true
+    secrets:
+      SECURITY_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+  sast-scan:
+    name: SAST - Code Vulnerabilities
+    uses: ayoolamakinde/appsec-static-scanner/.github/workflows/sast-scan.yml@main
+    with:
+      languages: 'python,javascript,typescript,go,java'
+      rules_path: 'p/owasp-top-ten,p/security-audit'
+      fail_on_severity: 'ERROR'
+      upload_sarif: true
+      create_issue: true
+      comment_pr: true
+    secrets:
+      SECURITY_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+  iac-scan:
+    name: IAC - Infrastructure Misconfigurations
+    uses: ayoolamakinde/appsec-static-scanner/.github/workflows/iac-scan.yml@main
+    with:
+      frameworks: 'terraform,kubernetes,dockerfile,cloudformation,bicep'
+      fail_on_severity: 'HIGH'
+      download_external_modules: true
+      compact_mode: false
+      create_issue: true
+      comment_pr: true
+    secrets:
+      SECURITY_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+  secrets-scan:
+    name: Secrets - Exposed Credentials
+    uses: ayoolamakinde/appsec-static-scanner/.github/workflows/secrets-scan.yml@main
+    with:
+      scan_type: 'filesystem,git'
+      scan_history: true
+      only_verified: false
+      entropy_threshold: 3.0
+      fail_on_finding: false
+      create_critical_issue: true
+      comment_pr: true
+    secrets:
+      SECURITY_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+  summary:
+    name: Security Scan Summary
+    needs: [sca-scan, sast-scan, iac-scan, secrets-scan]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate Summary
+        run: |
+          echo "# Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Scan Type | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| SCA (Dependencies) | ${{ needs.sca-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| SAST (Code) | ${{ needs.sast-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| IAC (Infrastructure) | ${{ needs.iac-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Secrets | ${{ needs.secrets-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **Note**: This repository contains intentionally vulnerable code for testing purposes." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Expected behavior: Multiple security findings should be detected across all scan types." >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify Final Status
+        if: always()
+        uses: ayoolamakinde/appsec-static-scanner/.github/workflows/notify.yml@main
+        with:
+          notification_type: 'summary'
+          severity: 'INFO'
+          tool_name: 'All Scanners'
+          message: |
+            🔒 **Security Scan Complete**
+            
+            SCA: ${{ needs.sca-scan.result }}
+            SAST: ${{ needs.sast-scan.result }}
+            IAC: ${{ needs.iac-scan.result }}
+            Secrets: ${{ needs.secrets-scan.result }}
+            
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+        secrets:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}

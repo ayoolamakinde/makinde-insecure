@@ -1,0 +1,37 @@
+# Ignore dependencies
+node_modules/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore build artifacts
+*.o
+*.so
+*.exe
+target/
+build/
+dist/
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore logs
+*.log
+
+# Ignore terraform state
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Keep the insecure code visible for testing!
+# This repo intentionally contains vulnerable code

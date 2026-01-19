@@ -1,0 +1,203 @@
+# Insecure Kubernetes Deployment
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: insecure-pod
+spec:
+  # Running as root!
+  securityContext:
+    runAsUser: 0
+    runAsGroup: 0
+  
+  containers:
+  - name: app
+    image: ubuntu:18.04  # Old, vulnerable base image
+    
+    # Running as privileged
+    securityContext:
+      privileged: true
+      allowPrivilegeEscalation: true
+      readOnlyRootFilesystem: false
+      runAsNonRoot: false
+    
+    # Hardcoded secrets in environment
+    env:
+    - name: DATABASE_PASSWORD
+      value: "admin123"  # Hardcoded password!
+    - name: API_KEY
+      value: "sk_live_4eC39HqLyjWDarhtT657tMo5k"
+    - name: AWS_ACCESS_KEY_ID
+      value: "AKIAIOSFODNN7EXAMPLE"
+    - name: AWS_SECRET_ACCESS_KEY
+      value: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    
+    # Mounting host path
+    volumeMounts:
+    - name: host-root
+      mountPath: /host
+    
+    # No resource limits
+    resources: {}
+  
+  # Mounting entire host filesystem
+  volumes:
+  - name: host-root
+    hostPath:
+      path: /
+      type: Directory
+  
+  # Using host network
+  hostNetwork: true
+  hostPID: true
+  hostIPC: true
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: insecure-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: insecure-app
+  template:
+    metadata:
+      labels:
+        app: insecure-app
+    spec:
+      # No security context
+      containers:
+      - name: app
+        image: nginx:1.14  # Outdated with known CVEs
+        ports:
+        - containerPort: 80
+        
+        # No resource limits - can consume all resources
+        
+        # Running as root by default
+        securityContext:
+          runAsUser: 0
+          capabilities:
+            add:
+            - SYS_ADMIN  # Dangerous capability
+            - NET_ADMIN
+        
+        env:
+        - name: SECRET_KEY
+          value: "my-secret-key-12345"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: insecure-service
+spec:
+  type: LoadBalancer  # Exposing to internet
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  selector:
+    app: insecure-app
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: insecure-config
+data:
+  database_url: "postgresql://admin:password123@db.example.com:5432/mydb"
+  api_token: "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
+  private_key: |
+    -----BEGIN RSA PRIVATE KEY-----
+    MIIEpAIBAAKCAQEA0Z3VS5JJcds3xfn/ygWyF6R3r4Lv7m8EqFLYrTZY...
+    -----END RSA PRIVATE KEY-----
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: overly-permissive-role
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]  # Full cluster access!
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dangerous-binding
+subjects:
+- kind: ServiceAccount
+  name: default  # Default service account with cluster admin!
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: overly-permissive-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: privileged-pod
+spec:
+  containers:
+  - name: privileged-container
+    image: alpine:3.10
+    command: ["/bin/sh", "-c", "sleep infinity"]
+    
+    securityContext:
+      privileged: true  # Full host access
+      capabilities:
+        add:
+        - ALL  # All Linux capabilities
+    
+    volumeMounts:
+    - name: docker-sock
+      mountPath: /var/run/docker.sock  # Docker socket mounted!
+  
+  volumes:
+  - name: docker-sock
+    hostPath:
+      path: /var/run/docker.sock
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: not-really-secret
+type: Opaque
+data:
+  # Base64 encoded but visible in repo!
+  password: YWRtaW4xMjM=  # admin123
+  api-key: c2stbGl2ZV80ZUM=  # sk-live_4eC
+  db-connection: cG9zdGdyZXNxbDovL2FkbWluOnBhc3N3b3JkQGRiLmV4YW1wbGUuY29tOjU0MzIvbXlkYg==
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-all-policy
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector: {}  # Allow from all pods
+  egress:
+  - to:
+    - podSelector: {}  # Allow to all pods
