@@ -27,7 +27,7 @@ jobs:
       severity: 'CRITICAL,HIGH,MEDIUM,LOW'
       fail_on_severity: 'HIGH'
       generate_sbom: true
-      output_format: 'sarif,json,cyclonedx'
+      output_format: 'json'
       create_issue: true
       comment_pr: true
     secrets:
